@@ -995,3 +995,31 @@ do
   vim.opt.expandtab = true
 
 end
+
+do
+  -- Auto-format Go code on save
+  local go_augroup = vim.api.nvim_create_augroup('go-formatting', { clear = true })
+
+  vim.api.nvim_create_autocmd('BufWritePre', {
+    group = go_augroup,
+    pattern = '*.go',
+    callback = function()
+      -- Organize imports first
+      local params = vim.lsp.util.make_range_params()
+      params.context = { only = { 'source.organizeImports' } }
+      local result = vim.lsp.buf_request_sync(0, 'textDocument/codeAction', params, 3000)
+      
+      for _, res in pairs(result or {}) do
+        for _, r in pairs(res.result or {}) do
+          if r.edit then
+            local enc = (vim.lsp.get_client_by_id(res.client_id) or {}).offset_encoding or 'utf-16'
+            vim.lsp.util.apply_workspace_edit(r.edit, enc)
+          end
+        end
+      end
+      
+      -- Then format the code
+      vim.lsp.buf.format({ async = false })
+    end,
+  })
+end
